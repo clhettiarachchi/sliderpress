@@ -1,0 +1,7 @@
+@use 'swiper/css';
+@use 'swiper/css/a11y';
+@use 'swiper/css/pagination';
+
+.sp-slideshow {
+    aspect-ratio: var(--sp-ratio, 16 / 9);
+}

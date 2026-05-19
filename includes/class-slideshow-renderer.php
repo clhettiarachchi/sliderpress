@@ -3,9 +3,8 @@
 /**
  * SliderPress -- Slideshow block renderer.
  *
- * Reads inner sliderpress/slide blocks from $content, wraps them in
- * accessible slideshow markup, and enqueues front-end assets.
- * Registered as the render_callback for the sliderpress/slideshow block.
+ * Resolves data from block attributes and inner blocks, then delegates
+ * all HTML output to template parts in includes/template-parts/slideshow/.
  *
  * @package SliderPress
  */
@@ -41,11 +40,10 @@ final class SlideshowRenderer
             return '';
         }
 
-        $settings = $this->resolve_settings($attributes);
+        $settings    = $this->resolve_settings($attributes);
+        $slide_count = count($block->inner_blocks);
 
-        $this->enqueue_frontend_assets();
-
-        return $this->build_html($content, $settings, count($block->inner_blocks));
+        return $this->render_slideshow($content, $settings, $slide_count);
     }
 
     /**
@@ -67,50 +65,14 @@ final class SlideshowRenderer
     }
 
     /**
-     * Asset enqueueing
+     * Slideshow orchestration
      *
-     * Enqueues front-end JS and CSS once per page load. Guarded by
-     * wp_script_is so multiple blocks on one page only enqueue once.
+     * Prepares all variables and passes them to the slideshow template.
      */
-    private function enqueue_frontend_assets(): void
+    private function render_slideshow(string $content, array $settings, int $slide_count): string
     {
-        if (wp_script_is('sliderpress-front', 'enqueued')) {
-            return;
-        }
-
-        $in_footer = (bool) Settings::get('footer_scripts');
-
-        wp_enqueue_style(
-            'sliderpress-front',
-            SLIDERPRESS_ASSETS . 'css/slideshow.css',
-            [],
-            SLIDERPRESS_VERSION
-        );
-
-        wp_enqueue_script(
-            'sliderpress-front',
-            SLIDERPRESS_ASSETS . 'js/slideshow.js',
-            [],
-            SLIDERPRESS_VERSION,
-            $in_footer
-        );
-    }
-
-    /**
-     * HTML builder
-     *
-     * Wraps the inner blocks HTML ($content) in accessible slideshow markup.
-     * The slide HTML itself comes from each sliderpress/slide block's save().
-     *
-     * @param string $content     Inner blocks HTML.
-     * @param array  $settings    Resolved settings.
-     * @param int    $slide_count Number of inner slide blocks.
-     * @return string
-     */
-    private function build_html(string $content, array $settings, int $slide_count): string
-    {
-        $uid         = 'sp-' . wp_unique_id();
-        $ratio_style = $this->ratio_to_padding($settings['aspectRatio']);
+        $uid       = 'sp-' . wp_unique_id();
+        $ratio_css = $this->ratio_to_css_value($settings['aspectRatio']);
 
         $data_attrs = sprintf(
             'data-transition="%s" data-autoplay="%s" data-interval="%d" data-arrows="%s" data-dots="%s"',
@@ -121,116 +83,77 @@ final class SlideshowRenderer
             $settings['showDots']   ? 'true' : 'false'
         );
 
-        $html = sprintf(
-            '<figure id="%s" class="sp-slideshow sp-slideshow--%s" role="region" aria-label="%s" %s>',
-            esc_attr($uid),
-            esc_attr($settings['transition']),
-            esc_attr__('Slideshow', 'sliderpress'),
-            $data_attrs
-        );
+        $slides = $this->render_template('slides', [
+            'slides' => $this->get_slides_from_content($content),
+        ]);
 
-        // Inline style is intentional -- ratio value is dynamic and cannot be a modifier class.
-        $html .= sprintf('<div class="sp-ratio-box" style="%s">', esc_attr($ratio_style));
-
-        // Inner blocks HTML contains the rendered sliderpress/slide blocks.
-        // Each slide's save() outputs a .sp-slide div with its image.
-        $html .= '<ul class="sp-slides" role="list">';
-        $html .= $this->wrap_slides_in_list_items($content, $slide_count);
-        $html .= '</ul>';
-
-        if ($settings['showArrows'] && $slide_count > 1) {
-            $html .= sprintf(
-                '<button class="sp-arrow sp-arrow--prev" aria-label="%s">&#8249;</button>',
-                esc_attr__('Previous slide', 'sliderpress')
-            );
-            $html .= sprintf(
-                '<button class="sp-arrow sp-arrow--next" aria-label="%s">&#8250;</button>',
-                esc_attr__('Next slide', 'sliderpress')
-            );
-        }
-
-        $html .= '</div>'; // .sp-ratio-box
-
-        if ($settings['showDots'] && $slide_count > 1) {
-            $html .= sprintf(
-                '<div class="sp-dots" role="tablist" aria-label="%s">',
-                esc_attr__('Slide navigation', 'sliderpress')
-            );
-
-            for ($i = 0; $i < $slide_count; $i++) {
-                $html .= sprintf(
-                    '<button class="sp-dot%s" role="tab" aria-selected="%s" aria-label="%s"></button>',
-                    0 === $i ? ' is-active' : '',
-                    0 === $i ? 'true' : 'false',
-                    /* translators: 1: current slide number, 2: total slides */
-                    esc_attr(sprintf(__('Slide %1$d of %2$d', 'sliderpress'), $i + 1, $slide_count))
-                );
-            }
-
-            $html .= '</div>';
-        }
-
-        $html .= sprintf(
-            '<div class="sp-live-region" aria-live="polite" aria-atomic="true">%s</div>',
-            /* translators: %d: total number of slides */
-            esc_html(sprintf(__('Slide 1 of %d', 'sliderpress'), $slide_count))
-        );
-
-        $html .= '</figure>';
-
-        return $html;
+        return $this->render_template('slideshow', [
+            'uid'         => $uid,
+            'ratio_css'   => $ratio_css,
+            'transition'  => $settings['transition'],
+            'data_attrs'  => $data_attrs,
+            'slides'      => $slides,
+            'show_arrows' => $settings['showArrows'],
+            'show_dots'   => $settings['showDots'],
+            'slide_count' => $slide_count,
+        ]);
     }
 
     /**
-     * Wrap each .sp-slide div from inner block content in a <li> element.
+     * Template loader
      *
-     * The first slide gets is-active; all others get aria-hidden="true".
+     * Loads a template part from includes/template-parts/slideshow/, extracts
+     * the provided variables into its scope, and returns the buffered output.
      *
-     * @param string $content     Raw inner blocks HTML.
-     * @param int    $slide_count Total slide count.
-     * @return string List item HTML.
+     * @param string $name Template file name without extension.
+     * @param array  $vars Variables to extract into the template scope.
+     * @return string Rendered HTML.
      */
-    private function wrap_slides_in_list_items(string $content, int $slide_count): string
+    private function render_template(string $name, array $vars = []): string
     {
-        $output = '';
-        $index  = 0;
+        $path = SLIDERPRESS_DIR . 'template-parts/' . $name . '.php';
 
-        // Match each .sp-slide block div from the saved slide block output.
+        if (! file_exists($path)) {
+            return '';
+        }
+
+        // phpcs:ignore WordPress.PHP.DontExtract -- intentional use for template rendering.
+        extract($vars);
+
+        ob_start();
+        require $path;
+        return ob_get_clean();
+    }
+
+    /**
+     * Slide extraction
+     *
+     * Parses inner block HTML and returns an array of individual slide HTML strings.
+     *
+     * @param string $content Raw inner blocks HTML.
+     * @return string[] Array of individual slide HTML strings.
+     */
+    private function get_slides_from_content(string $content): array
+    {
         preg_match_all('/<div[^>]+class="[^"]*sp-slide[^"]*"[^>]*>.*?<\/div>/s', $content, $matches);
 
-        foreach ($matches[0] as $slide_html) {
-            $is_active   = 0 === $index;
-            $aria_hidden = $is_active ? 'false' : 'true';
-
-            $output .= sprintf(
-                '<li class="sp-slide-wrap%s" aria-hidden="%s" role="listitem">%s</li>',
-                $is_active ? ' is-active' : '',
-                $aria_hidden,
-                $slide_html
-            );
-
-            $index++;
-        }
-
-        return $output;
+        return $matches[0] ?? [];
     }
 
     /**
-     * Convert an aspect ratio string (e.g. "16:9") to a padding-top percentage.
+     * Convert an aspect ratio string (e.g. "16:9") to a CSS aspect-ratio value (e.g. "16/9").
      *
      * @param string $ratio Ratio string.
-     * @return string CSS padding-top declaration.
+     * @return string CSS aspect-ratio value.
      */
-    private function ratio_to_padding(string $ratio): string
+    private function ratio_to_css_value(string $ratio): string
     {
         $parts = explode(':', $ratio);
 
         if (2 === count($parts) && (float) $parts[0] > 0) {
-            $pct = round(((float) $parts[1] / (float) $parts[0]) * 100, 4);
-            return "padding-top:{$pct}%";
+            return (int) $parts[0] . '/' . (int) $parts[1];
         }
 
-        // Default 16:9.
-        return 'padding-top:56.25%';
+        return '16/9';
     }
 }
