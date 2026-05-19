@@ -1,0 +1,55 @@
+// Slide child block -- editor-only styles.
+
+.sp-slide {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+
+    &__media {
+        flex-shrink: 0;
+        width: 120px;
+        height: 80px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: #e0e0e0;
+    }
+
+    &__img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    &__placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        width: 100%;
+        height: 100%;
+        color: #757575;
+
+        .dashicons {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+        }
+    }
+
+    &__placeholder-label {
+        font-size: 11px;
+    }
+
+    &__controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+}

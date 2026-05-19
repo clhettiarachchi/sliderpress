@@ -1,0 +1,20 @@
+{
+  "name": "sliderpress",
+  "version": "0.1.0",
+  "description": "A lightweight, accessible slideshow block for WordPress.",
+  "main": "block/build/index.js",
+  "scripts": {
+    "build": "wp-scripts build --webpack-src-dir=blocks/src --output-path=blocks/build",
+    "start": "wp-scripts start --webpack-src-dir=blocks/src --output-path=blocks/build",
+    "format": "wp-scripts format",
+    "lint:js": "wp-scripts lint-js block/src",
+    "lint:css": "wp-scripts lint-style block/src",
+    "packages-update": "wp-scripts packages-update",
+    "plugin-zip": "wp-scripts plugin-zip"
+  },
+  "author": "Chandika Hettiarachchi",
+  "license": "GPL-2.0-or-later",
+  "devDependencies": {
+    "@wordpress/scripts": "^30.0.0"
+  }
+}

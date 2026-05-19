@@ -1,0 +1,14 @@
+// Slide child block -- shared front-end and editor styles.
+
+// Front-end slide styles are handled by the parent slideshow block's
+// style.scss since slides are positioned inside the slideshow container.
+// This file is intentionally minimal.
+
+.sp-slide {
+    img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}

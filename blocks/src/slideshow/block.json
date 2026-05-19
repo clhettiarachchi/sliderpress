@@ -1,0 +1,62 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "sliderpress/slideshow",
+	"version": "0.1.0",
+	"title": "SliderPress Slideshow",
+	"category": "media",
+	"icon": "images-alt2",
+	"description": "An accessible, responsive slideshow. Add slide blocks inside to build your slideshow.",
+	"keywords": [
+		"slideshow",
+		"slider",
+		"carousel",
+		"gallery"
+	],
+	"textdomain": "sliderpress",
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"attributes": {
+		"transition": {
+			"type": "string",
+			"default": "fade",
+			"enum": [
+				"fade",
+				"slide"
+			]
+		},
+		"autoplay": {
+			"type": "boolean",
+			"default": false
+		},
+		"autoplayInterval": {
+			"type": "integer",
+			"default": 5
+		},
+		"showArrows": {
+			"type": "boolean",
+			"default": true
+		},
+		"showDots": {
+			"type": "boolean",
+			"default": true
+		},
+		"aspectRatio": {
+			"type": "string",
+			"default": "16:9"
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true,
+			"padding": false
+		}
+	},
+	"render": "file:./render.php"
+}
